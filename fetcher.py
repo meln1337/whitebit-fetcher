@@ -5,16 +5,16 @@ import websocket
 import requests
 
 if len(sys.argv) == 1:
-    print("You have not specified the mode, please enter double or trades or orderbooks")
+    print("You have not specified the mode, please enter both or trades or orderbooks")
     exit()
-elif sys.argv[1] == "double":
-    mode = "double"
+elif sys.argv[1] == "both":
+    mode = "both"
 elif sys.argv[1] == "trades":
     mode = "trades"
 elif sys.argv[1] == "orderbooks":
     mode = "orderbooks"
 else:
-    print("You have entered the wrong mode, please enter double or trades or orderbooks")
+    print("You have entered the wrong mode, please enter both or trades or orderbooks")
     exit()
 
 def current_milli_time():
@@ -35,60 +35,34 @@ trades_request = json.dumps({
     ]
 })
 
-def print_trades(ws):
-    try:
-        data = ws.recv()
-        data = json.loads(data)
-        params = data["params"]
-        symbol = params[0]
-        symbol = symbol.replace("_", "-")
-        trades = params[1]
-        for trade in trades:
-            ts = current_milli_time()
-            price = trade["price"]
-            amount = trade["amount"]
-            side = "B" if trade["type"] == "buy" else "S"
-            print(f"! {ts} {exchange} {symbol} {side} {price} {amount}")
-    except:
-        pass
-
-def trades():
-    ws_trades = websocket.create_connection("wss://api.whitebit.com/ws")
-    ws_trades.send(trades_request)
-
-    if mode == "double":
-        for i in range(1000):
-            print_trades(ws_trades)
-    else:
-        while True:
-            print_trades(ws_trades)
-
-    ws_trades.close()
-
-def print_orderbooks(ws):
-    try:
-        data = ws.recv()
-        # print(data)
-        # time.sleep(0.1)
-        data = json.loads(data)
-        params = data["params"]
-        full_reload = params[0]
-        symbol = params[2]
-        symbol = symbol.replace("_", "-")
-        asks = params[1]["asks"]
+def print_trades(data):
+    params = data["params"]
+    symbol = params[0]
+    symbol = symbol.replace("_", "-")
+    trades = params[1]
+    for trade in trades:
         ts = current_milli_time()
-        pq = "|".join([f"{ask[0]}@{ask[1]}" for ask in asks])
-        print(f"$ {ts} {exchange} {symbol} S {pq} {'R' if full_reload else ''}")
-        bids = params[1]["bids"]
-        pq = "|".join([f"{bid[0]}@{bid[1]}" for bid in bids])
-        print(f"$ {ts} {exchange} {symbol} B {pq} {'R' if full_reload else ''}")
+        price = trade["price"]
+        amount = trade["amount"]
+        side = "B" if trade["type"] == "buy" else "S"
+        print(f"! {ts} {exchange} {symbol} {side} {price} {amount}")
+def print_orderbooks(data):
+    params = data["params"]
+    full_reload = params[0]
+    symbol = params[2]
+    symbol = symbol.replace("_", "-")
+    asks = params[1]["asks"]
+    ts = current_milli_time()
+    pq = "|".join([f"{ask[1]}@{ask[0]}" for ask in asks])
+    print(f"$ {ts} {exchange} {symbol} S {pq} {'R' if full_reload else ''}")
+    bids = params[1]["bids"]
+    pq = "|".join([f"{bid[1]}@{bid[0]}" for bid in bids])
+    print(f"$ {ts} {exchange} {symbol} B {pq} {'R' if full_reload else ''}")
 
-    except:
-        pass
+def trades_sub(ws):
+    ws.send(trades_request)
 
-def orderbooks():
-    ws_orderbooks = websocket.create_connection("wss://api.whitebit.com/ws")
-
+def orderbooks_sub(ws):
     for symbol in symbols:
         orderbooks_request = json.dumps({
             "id": 12,
@@ -100,24 +74,44 @@ def orderbooks():
                 True
             ]
         })
-        ws_orderbooks.send(orderbooks_request)
-        # print(f"Subscribed to {symbol}")
+        ws.send(orderbooks_request)
 
-    if mode == "double":
-        for i in range(5000):
-            print_orderbooks(ws_orderbooks)
-    else:
-        while True:
-            print_orderbooks(ws_orderbooks)
-
-    ws_orderbooks.close()
+ws = websocket.create_connection("wss://api.whitebit.com/ws")
 
 if mode == "trades":
-    trades()
+    trades_sub(ws)
+
+    while True:
+        data = ws.recv()
+        data = json.loads(data)
+        try:
+            print_trades(data)
+        except:
+            pass
 
 elif mode == "orderbooks":
-    orderbooks()
-else:
+    orderbooks_sub(ws)
     while True:
-        trades()
-        orderbooks()
+        data = ws.recv()
+        data = json.loads(data)
+        try:
+            print_orderbooks(data)
+        except:
+            pass
+else:
+    trades_sub(ws)
+    orderbooks_sub(ws)
+
+    while True:
+        data = ws.recv()
+        data = json.loads(data)
+        try:
+            if data["method"] == "trades_update":
+                print_trades(data)
+
+            elif data["method"] == "depth_update":
+                print_orderbooks(data)
+        except:
+            pass
+
+ws.close()
