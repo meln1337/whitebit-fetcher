@@ -35,46 +35,57 @@ trades_request = json.dumps({
     ]
 })
 
+def print_trades(ws):
+    try:
+        data = ws.recv()
+        data = json.loads(data)
+        params = data["params"]
+        symbol = params[0]
+        symbol = symbol.replace("_", "-")
+        trades = params[1]
+        for trade in trades:
+            ts = current_milli_time()
+            price = trade["price"]
+            amount = trade["amount"]
+            side = "B" if trade["type"] == "buy" else "S"
+            print(f"! {ts} {exchange} {symbol} {side} {price} {amount}")
+    except:
+        pass
+
 def trades():
     ws_trades = websocket.create_connection("wss://api.whitebit.com/ws")
     ws_trades.send(trades_request)
 
     if mode == "double":
         for i in range(1000):
-            try:
-                data = ws_trades.recv()
-                data = json.loads(data)
-                params = data["params"]
-                symbol = params[0]
-                symbol = symbol.replace("_", "-")
-                trades = params[1]
-                for trade in trades:
-                    ts = current_milli_time()
-                    price = trade["price"]
-                    amount = trade["amount"]
-                    side = "B" if trade["type"] == "buy" else "S"
-                    print(f"! {ts} {exchange} {symbol} {side} {price} {amount}")
-            except:
-                pass
+            print_trades(ws_trades)
     else:
         while True:
-            try:
-                data = ws_trades.recv()
-                data = json.loads(data)
-                params = data["params"]
-                symbol = params[0]
-                symbol = symbol.replace("_", "-")
-                trades = params[1]
-                for trade in trades:
-                    ts = current_milli_time()
-                    price = trade["price"]
-                    amount = trade["amount"]
-                    side = "B" if trade["type"] == "buy" else "S"
-                    print(f"! {ts} {exchange} {symbol} {side} {price} {amount}")
-            except:
-                pass
+            print_trades(ws_trades)
 
     ws_trades.close()
+
+def print_orderbooks(ws):
+    try:
+        data = ws.recv()
+        # print(data)
+        # time.sleep(0.1)
+        data = json.loads(data)
+        params = data["params"]
+        full_reload = params[0]
+        symbol = params[2]
+        symbol = symbol.replace("_", "-")
+        asks = params[1]["asks"]
+        ts = current_milli_time()
+        pq = "|".join([f"{ask[0]}@{ask[1]}" for ask in asks])
+        print(f"$ {ts} {exchange} {symbol} S {pq} {'R' if full_reload else ''}")
+        bids = params[1]["bids"]
+        pq = "|".join([f"{bid[0]}@{bid[1]}" for bid in bids])
+        print(f"$ {ts} {exchange} {symbol} B {pq} {'R' if full_reload else ''}")
+
+    except:
+        pass
+
 def orderbooks():
     ws_orderbooks = websocket.create_connection("wss://api.whitebit.com/ws")
 
@@ -94,46 +105,10 @@ def orderbooks():
 
     if mode == "double":
         for i in range(5000):
-            try:
-                data = ws_orderbooks.recv()
-                # print(data)
-                # time.sleep(0.1)
-                data = json.loads(data)
-                params = data["params"]
-                full_reload = params[0]
-                symbol = params[2]
-                symbol = symbol.replace("_", "-")
-                asks = params[1]["asks"]
-                ts = current_milli_time()
-                pq = "|".join([f"{ask[0]}@{ask[1]}" for ask in asks])
-                print(f"$ {ts} {exchange} {symbol} S {pq} {'R' if full_reload else ''}")
-                bids = params[1]["bids"]
-                pq = "|".join([f"{bid[0]}@{bid[1]}" for bid in bids])
-                print(f"$ {ts} {exchange} {symbol} B {pq} {'R' if full_reload else ''}")
-
-            except:
-                pass
+            print_orderbooks(ws_orderbooks)
     else:
         while True:
-            try:
-                data = ws_orderbooks.recv()
-                # print(data)
-                # time.sleep(0.1)
-                data = json.loads(data)
-                params = data["params"]
-                full_reload = params[0]
-                symbol = params[2]
-                symbol = symbol.replace("_", "-")
-                asks = params[1]["asks"]
-                ts = current_milli_time()
-                pq = "|".join([f"{ask[0]}@{ask[1]}" for ask in asks])
-                print(f"$ {ts} {exchange} {symbol} S {pq} {'R' if full_reload else ''}")
-                bids = params[1]["bids"]
-                pq = "|".join([f"{bid[0]}@{bid[1]}" for bid in bids])
-                print(f"$ {ts} {exchange} {symbol} B {pq} {'R' if full_reload else ''}")
-
-            except:
-                pass
+            print_orderbooks(ws_orderbooks)
 
     ws_orderbooks.close()
 
