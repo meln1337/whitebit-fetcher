@@ -1,5 +1,7 @@
+from sklearn.metrics import mean_absolute_percentage_error
 import sys
 import time
+from decimal import Decimal
 import json
 import websocket
 import requests
@@ -19,8 +21,6 @@ else:
 
 def current_milli_time():
     return round(time.time() * 1000)
-
-exchange = "whitebit"
 
 res = requests.get("https://whitebit.com/api/v4/public/ticker")
 res = res.json()
@@ -45,7 +45,8 @@ def print_trades(data):
         price = trade["price"]
         amount = trade["amount"]
         side = "B" if trade["type"] == "buy" else "S"
-        print(f"! {ts} {exchange} {symbol} {side} {price} {amount}")
+        print(f"! {ts} {symbol} {side} {format(Decimal(price), 'f')} {format(Decimal(amount), 'f')}")
+
 def print_orderbooks(data):
     params = data["params"]
     full_reload = params[0]
@@ -53,11 +54,11 @@ def print_orderbooks(data):
     symbol = symbol.replace("_", "-")
     asks = params[1]["asks"]
     ts = current_milli_time()
-    pq = "|".join([f"{ask[1]}@{ask[0]}" for ask in asks])
-    print(f"$ {ts} {exchange} {symbol} S {pq} {'R' if full_reload else ''}")
+    pq = "|".join([f"{format(Decimal(ask[1]), 'f')}@{format(Decimal(ask[0]), 'f')}" for ask in asks])
+    print(f"$ {ts} {symbol} S {pq} {'R' if full_reload else ''}")
     bids = params[1]["bids"]
-    pq = "|".join([f"{bid[1]}@{bid[0]}" for bid in bids])
-    print(f"$ {ts} {exchange} {symbol} B {pq} {'R' if full_reload else ''}")
+    pq = "|".join([f"{format(Decimal(bid[1]), 'f')}@{format(Decimal(bid[0]), 'f')}" for bid in bids])
+    print(f"$ {ts} {symbol} B {pq} {'R' if full_reload else ''}")
 
 def trades_sub(ws):
     ws.send(trades_request)
