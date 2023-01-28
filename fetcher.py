@@ -1,4 +1,3 @@
-from sklearn.metrics import mean_absolute_percentage_error
 import sys
 import time
 from decimal import Decimal
